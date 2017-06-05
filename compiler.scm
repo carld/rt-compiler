@@ -1,4 +1,4 @@
-;; -*- geiser-scheme-implementation: guile -*-
+;; -*- geiser-scheme-implementation: chez -*-
 
 (define compile-port
   (make-parameter
@@ -12,13 +12,30 @@
   (apply fprintf (compile-port) args)
   (newline (compile-port)))
 
-(define (emit-literal expr)
-  (emit "mov rax, ~s" expr))
+(define (emit-line)
+  (newline (compile-port)))
+
+(define make-symbol
+  (let ((sym-num 0))
+    (lambda ()
+      (set! sym-num (+ 1 sym-num))
+      (format #f "sym_~s" sym-num))))
+
+(define (binop? expr)
+  (and (pair? expr) (= 3 (length expr))))
 
 (define (compile-expr expr env)
   (cond
-    (number? expr)  (emit-literal expr))
-)
+   ; atomic types
+   ((flonum? expr)  (emit "movss %xmm0, ~s" expr))
+
+   ; non-atomic types
+   ((binop? expr)  (emit "~s ~s, ~s"
+                         (car expr)
+                         (compile-expr (cadr expr) env)
+                         (compile-expr (caddr expr) env)))
+
+   (else (errorf "unrecognized expression:" expr))))
 
 (define (compile-program expr env)
   (emit "global _scheme_entry")

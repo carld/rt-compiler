@@ -2,12 +2,8 @@
 #include <unistd.h>   /* sysconf */
 #include <sys/mman.h> /* mprotect */
 #include <stdio.h>    /* perror */
-extern int scheme_entry(void *, size_t);
 
-int dummy(void *m, size_t s) {
-  printf("%p, %ld\n", m, s);
-  return 0;
-}
+extern int scheme_entry(void *, size_t);
 
 int main(int argc, char *argv[]) {
 
@@ -24,6 +20,4 @@ int main(int argc, char *argv[]) {
   }
 
   return scheme_entry(mem, size);
-  /*return dummy(mem, size);*/
-
 }
