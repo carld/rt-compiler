@@ -68,15 +68,18 @@
         (comp si value new-env depth)
         (binding-loop (+ si 4) (cdr bindings) (cons (cons name si) new-env)))])))
 
-                                        ; i ... stack index
-                                        ; x ... expression
-                                        ; env ... environment
-                                        ; depth ... recursion depth
+(define (vector? x)
+  (equal? 'vec (car x)))
+
+(define (emit-vector i x env depth)
+  (emit depth " ; TODO"))
+
 (define (comp i x env depth)
   (cond
-   [(fixnum? x)  (emit depth "push ~a~%" x)]
-   [(flonum? x)  #t  ]
+   [(fixnum? x)  (emit depth "push DWORD ~a~%" x)]
+   [(flonum? x)  (emit depth "push DWORD ~a~%" x)]
    [(symbol? x)  (emit-sym x env depth)]
+   [(vector? x)  (emit-vector i x env depth)]
    [(binop? x)   (emit-binop i x env (+ 1 depth))]
    [(let? x)     (emit-let i x env (+ 1 depth))]
    [else (errorf 'comp "bad expression: ~a" x)]))
@@ -90,7 +93,7 @@
     (emit si "_scheme_entry:~%")
     (emit si "push ebp~%")
     (emit si "mov ebp, esp~%")
-                                        ;  (emit 0 "and esp, 0FFFFFFF0H ~% ; align stack")
+    (emit si "and esp, 0FFFFFFF0H ; align stack to 16 ~%")
     (comp si x env depth)
     (emit si "pop eax~%")
     (emit si "mov esp, ebp~%")

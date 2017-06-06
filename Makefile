@@ -13,7 +13,7 @@ tests := $(wildcard test-*.ss)
 bins := $(tests:.ss=.bin)
 
 # Run each test program and echo exit code
-all: $(bins)
+all: clean $(bins)
 	for b in $(bins); do \
 		./$$b; echo $$?; \
 	done;
@@ -35,7 +35,7 @@ boot.o: boot.c
 	$(SCHEME) --script $^ > $@
 
 clean:
-	rm -v *.o *.bin *.s
+	rm -vf *.o *.bin *.s
 
 # Targets clean and all are not real artifacts
 .PHONY: clean all
