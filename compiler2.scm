@@ -73,25 +73,26 @@
                                         ; env ... environment
                                         ; depth ... recursion depth
 (define (comp i x env depth)
-  (printf "; DEBUG, env: ~a ~%" env)
   (cond
    [(fixnum? x)  (emit depth "push ~a~%" x)]
+   [(flonum? x)  #t  ]
    [(symbol? x)  (emit-sym x env depth)]
    [(binop? x)   (emit-binop i x env (+ 1 depth))]
    [(let? x)     (emit-let i x env (+ 1 depth))]
    [else (errorf 'comp "bad expression: ~a" x)]))
 
 (define (program x)
-;  (emit 0 "align 16 ~%")
-  (emit 0 "global _scheme_entry~%")
-  (emit 0 "section .text~%")
-  (emit 0 "_scheme_entry:~%")
-  (emit 0 "push ebp~%")
-  (emit 0 "mov ebp, esp~%")
-;  (emit 0 "and esp, 0FFFFFFF0H ~% ; align stack")
-  (comp 0 x '() 0)
-  (emit 0 "pop eax~%")
-  (emit 0 "mov esp, ebp~%")
-  (emit 0 "pop ebp ~%")
-  (emit 0 "ret~%")
-  )
+  (let [(si 0)
+        (depth 0)
+        (env '())]
+    (emit si "global _scheme_entry~%")
+    (emit si "section .text~%")
+    (emit si "_scheme_entry:~%")
+    (emit si "push ebp~%")
+    (emit si "mov ebp, esp~%")
+                                        ;  (emit 0 "and esp, 0FFFFFFF0H ~% ; align stack")
+    (comp si x env depth)
+    (emit si "pop eax~%")
+    (emit si "mov esp, ebp~%")
+    (emit si "pop ebp ~%")
+    (emit si "ret~%")))
