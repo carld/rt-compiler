@@ -21,13 +21,12 @@
     [(+ - * /) #t]
     [else #f]))
 
-(define (emit-binop x env depth)
-  (emit depth ";;; Enter binop ~%")
-  (emit depth "; RHS~%")
-  (comp (caddr x) env (+ 1 depth))
+(define (let? expr)
+  (equal? (car expr) 'let))
 
-  (emit depth "; LHS~%")
-  (comp (cadr x) env (+ 1 depth))
+(define (emit-binop i x env depth)
+  (comp i (caddr x) env (+ 1 depth))
+  (comp i (cadr x) env (+ 1 depth))
 
 ;  (emit depth "movss xmm1, [esp+4]~%") ; rhs
 ;  (emit depth "movss xmm0, [esp]~%") ; lhs
@@ -36,24 +35,51 @@
   (emit depth "mov eax, [esp] ~%")
   (emit depth "add esp, 8 ~%")
 
+  (emit depth "xor edx, edx ~%")
   (case (car x)
     [(+)  (emit depth "add eax, ebx~%")   ]
     [(-)  (emit depth "sub eax, ebx~%")   ]
     [(*)  (emit depth "imul ebx~%")   ]
-    [(/)
-     (begin
-       (emit depth "mov edx, 0~%")
-       (emit depth "idiv ebx~%"))   ]
-    )
+    [(/)  (emit depth "idiv ebx~%")   ])
   (emit depth "push eax ~%")
-  (emit depth ";;; Leave binop ~%")
 )
 
-(define (comp x env depth)
+(define (lookup-sym sym env)
+  (let [(val (assoc sym env))]
+    (if (pair? val) (cdr val) #f)))
+
+(define (emit-sym sym env depth)
+  (let [(si (lookup-sym sym env))]
+    (cond
+     [si (emit depth "push DWORD [esp+~a]~%" si)]
+     [else (errorf 'emit-sym "no reference for symbol: ~a in env: ~a" sym env)])))
+
+(define (emit-let i x env depth)
+  (let binding-loop [(si i)
+                     (bindings (cadr x))
+                     (new-env env)]
+    (cond
+     [(null? bindings)  ; no more bindings, evaluate let body
+      (comp si (caddr x) new-env depth)]
+     [else
+      (let* [(b1 (car bindings))
+             (name (car b1))
+             (value (cadr b1))]
+        (comp si value new-env depth)
+        (binding-loop (+ si 4) (cdr bindings) (cons (cons name si) new-env)))])))
+
+                                        ; i ... stack index
+                                        ; x ... expression
+                                        ; env ... environment
+                                        ; depth ... recursion depth
+(define (comp i x env depth)
+  (printf "; DEBUG, env: ~a ~%" env)
   (cond
    [(fixnum? x)  (emit depth "push ~a~%" x)]
-   [(binop? x)  (emit-binop x env (+ 1 depth))]
-   [else (error "bad expression " x)]))
+   [(symbol? x)  (emit-sym x env depth)]
+   [(binop? x)   (emit-binop i x env (+ 1 depth))]
+   [(let? x)     (emit-let i x env (+ 1 depth))]
+   [else (errorf 'comp "bad expression: ~a" x)]))
 
 (define (program x)
 ;  (emit 0 "align 16 ~%")
@@ -63,7 +89,7 @@
   (emit 0 "push ebp~%")
   (emit 0 "mov ebp, esp~%")
 ;  (emit 0 "and esp, 0FFFFFFF0H ~% ; align stack")
-  (comp x '() 0)
+  (comp 0 x '() 0)
   (emit 0 "pop eax~%")
   (emit 0 "mov esp, ebp~%")
   (emit 0 "pop ebp ~%")
