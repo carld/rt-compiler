@@ -1,20 +1,6 @@
-(define-syntax section
-  (syntax-rules ()
-    [(_ type (instruction ...) ... )
-
-     (let-syntax ([b (syntax-rules ()
-                       [(_ i)          (printf "~s~%" 'i )]
-                       [(_ i op1)      (printf "~s ~s~%" 'i 'op1)]
-                       [(_ i op1 op2)  (printf "~s ~s, ~s~%" 'i 'op1 'op2)])])
-       (begin
-         (printf "~s ~s~%" 'section 'type)
-         (b instruction ...) ...
-          ))]))
-
 (define (emit depth . args)
   (printf "~vt" (* 2 depth))
   (apply printf args))
-
 
 (define (binop? expr)
   (case (car expr)
@@ -27,9 +13,6 @@
 (define (emit-binop i x env depth)
   (comp i (caddr x) env (+ 1 depth))
   (comp i (cadr x) env (+ 1 depth))
-
-;  (emit depth "movss xmm1, [esp+4]~%") ; rhs
-;  (emit depth "movss xmm0, [esp]~%") ; lhs
 
   (emit depth "mov ebx, [esp+4] ~%")
   (emit depth "mov eax, [esp] ~%")
@@ -71,8 +54,20 @@
 (define (vector? x)
   (equal? 'vec (car x)))
 
+(define make-constant-sym
+  (let [(const-sym-n 0)]
+    (lambda args
+      (set! const-sym-n (+ 1 const-sym-n))
+      (format #f "constant_~{~a_~}~a" args const-sym-n))))
+
 (define (emit-vector i x env depth)
-  (emit depth " ; TODO"))
+  (emit depth "align 16~%")  ; align data segment
+  (let loop [(label (make-constant-sym "vector"))
+             (f (cdr x))]
+    ; add this constant to the .data section
+    (emit depth "~a    dd ~{~a~^,~}~%" label (cdr x))
+    (emit depth ";~%"))
+    )
 
 (define (comp i x env depth)
   (cond
@@ -82,9 +77,9 @@
    [(vector? x)  (emit-vector i x env depth)]
    [(binop? x)   (emit-binop i x env (+ 1 depth))]
    [(let? x)     (emit-let i x env (+ 1 depth))]
-   [else (errorf 'comp "bad expression: ~a" x)]))
+   [else (errorf 'comp "can't compile expression: ~a" x)]))
 
-(define (program x)
+(define (compile x)
   (let [(si 0)
         (depth 0)
         (env '())]
@@ -98,4 +93,5 @@
     (emit si "pop eax~%")
     (emit si "mov esp, ebp~%")
     (emit si "pop ebp ~%")
-    (emit si "ret~%")))
+    (emit si "ret~%")
+    (emit si "section .data~%")))
